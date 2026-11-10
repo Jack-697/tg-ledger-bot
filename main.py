@@ -1,11 +1,10 @@
 import os
-import threading
 import requests
 import telebot
 from decimal import Decimal, ROUND_HALF_UP
-from http.server import HTTPServer, BaseHTTPRequestHandler
 
-TOKEN = "9146607239:AAGh5cnKEPmfZvnBBBJxXYb-2-HKAtkhdwg"
+# 优先从环境变量读取 BOT_TOKEN，若未配置则使用默认 Token 兜底
+TOKEN = os.getenv("BOT_TOKEN", "9146607239:AAGh5cnKEPmfZvnBBBJxXYb-2-HKAtkhdwg")
 bot = telebot.TeleBot(TOKEN)
 
 # 内存数据存储结构
@@ -18,7 +17,7 @@ def get_group(chat_id):
             "rate": Decimal("9"),        # 默认账单汇率
             "deposits": [],              # 入款列表
             "payouts": [],               # 下发列表
-            "operators": set()           # 操作人集合（存用户名小写）
+            "operators": set()           # 操作人集合（存用户名小写，用于直接文字匹配）
         }
     return group_data[chat_id]
 
@@ -67,6 +66,7 @@ def cmd_roles(message):
     text = message.text.strip()
     
     if text.startswith("设置操作人"):
+        # 提取格式中的用户名，例如 "设置操作人 @abc" -> 提取出 "abc"
         parts = message.text.replace("设置操作人", "").strip()
         if parts.startswith("@"):
             target_name = parts[1:].strip().lower()
@@ -165,6 +165,7 @@ def handle_ledger(message):
             if operators:
                 sender_username = message.from_user.username
                 if not sender_username or sender_username.lower() not in operators:
+                    # 如果发单人没有配置 username 或者不在操作人列表内，直接忽略
                     return
 
             # A. 下发命令
@@ -238,25 +239,6 @@ def send_report(chat_id):
 
     bot.send_message(chat_id, "\n".join(lines))
 
-# ================= 6. 适配 Render 端口监听与多线程启动 =================
-class SimpleHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"Telegram Bot is running!")
-    def log_message(self, format, *args):
-        return  # 屏蔽网页访问日志刷屏
-
-def run_web_server():
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(("0.0.0.0", port), SimpleHandler)
-    server.serve_forever()
-
 if __name__ == "__main__":
-    print("正在启动网页监听端口（适配 Render 服务）...")
-    web_thread = threading.Thread(target=run_web_server)
-    web_thread.daemon = True
-    web_thread.start()
-
     print("美高梅国际全功能版机器人已启动，正在监听 Telegram 消息...")
     bot.infinity_polling()
