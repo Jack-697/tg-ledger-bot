@@ -227,7 +227,7 @@ def send_report(chat_id):
     payout_u = sum([p["u"] for p in pays], Decimal("0"))
     balance_u = total_u - payout_u
 
-    lines = ["GMG"]
+    lines = ["MGM欢迎您来单！"]
     lines.append(f"今日入款 ({len(deps)}笔) :")
     if not deps:
         lines.append("（暂无）")
@@ -251,5 +251,5 @@ def send_report(chat_id):
     bot.send_message(chat_id, "\n".join(lines))
 
 if __name__ == "__main__":
-    print("GMG全功能版机器人已启动，正在监听 Telegram 消息...")
+    print("MGM欢迎您来单！全功能版机器人已启动，正在监听 Telegram 消息...")
     bot.infinity_polling()
