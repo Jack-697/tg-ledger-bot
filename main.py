@@ -152,23 +152,36 @@ def handle_ledger(message):
     chat_id = message.chat.id
     g = get_group(chat_id)
     
-    if not g.get("is_running", True):
-        return
-        
-    rate = g["rate"]
     import time
     local_time = time.strftime("%H:%M:%S", time.localtime(time.time()))
+    rate = g["rate"]
 
     try:
-        # 【规则 1】：群里所有人发送加减乘除算式（包含 * 或 /），都正常返回计算结果
-        if ("*" in text or "/" in text) and not text.startswith("+") and not text.startswith("-") and not text.startswith("下发"):
-            allowed_chars = set("0123456789.*/()")
-            if all(c in allowed_chars for c in text):
+        # 【规则 1：最优先处理数学计算器】
+        # 只要包含加、减、乘、除符号，且符合数学表达式规范，就走计算器
+        math_allowed_chars = set("0123456789.+\-*/()")
+        if all(c in math_allowed_chars for c in text) and any(op in text for op in "+-*/"):
+            # 排除真正的记账指令（如以 "下发" 开头，或者仅仅是 "+数字" / "-数字" 且内部没有其他混合算术运算符）
+            is_pure_ledger = text.startswith("下发") or (
+                (text.startswith("+") or text.startswith("-")) 
+                and not any(op in text[1:] for op in "+-*/")
+            )
+            
+            # 排除自定义汇率入款（如 +100/8.5 这种包含斜杠的记账）
+            if text.startswith("+") or text.startswith("-"):
+                if "/" in text:
+                    is_pure_ledger = True
+
+            if not is_pure_ledger:
                 result = eval(text)
                 if isinstance(result, float):
                     result = format_money(Decimal(str(result)))
                 bot.reply_to(message, f"🧮 计算结果: {text} = {result}")
                 return
+
+        # 如果群组处于关闭状态（下课），则不处理后面的记账指令
+        if not g.get("is_running", True):
+            return
 
         # 检查是否为记账指令（下发 或 + / -）
         is_ledger_cmd = False
